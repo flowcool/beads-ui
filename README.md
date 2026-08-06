@@ -35,6 +35,14 @@ bdui start --open
 
 See `bdui --help` for options.
 
+## Docker
+
+```sh
+docker run -d -p 3000:3000 --init -v ./:/data ghcr.io/mantoni/beads-ui:latest
+```
+
+See [DOCKER.md](DOCKER.md) for build args, environment variables, and deployment details.
+
 ## Screenshots
 
 **Issues**

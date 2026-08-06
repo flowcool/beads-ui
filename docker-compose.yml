@@ -1,0 +1,30 @@
+# Example docker-compose for beads-ui.
+# Mount your project directory (containing .beads/) to /data.
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f
+
+services:
+  beads-ui:
+    build:
+      context: .
+      args:
+        BD_VERSION: "1.1.2"
+    # Or use a pre-built image:
+    # image: ghcr.io/mantoni/beads-ui:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/data:rw
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      # BDUI_BD_SANDBOX: "0"  # Opt out of sandbox mode (enables Dolt sync)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

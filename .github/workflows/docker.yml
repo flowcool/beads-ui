@@ -1,0 +1,122 @@
+name: Docker
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - .github/workflows/docker.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'release'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from release tag
+        if: github.event_name == 'release'
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building version: ${VERSION}"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'release' }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version || 'pr-test' }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image locally
+        run: docker build -t beads-ui:test .
+
+      - name: Create test workspace
+        run: |
+          mkdir -p /tmp/test-workspace/.beads
+          echo '{"database":"dolt"}' > /tmp/test-workspace/.beads/metadata.json
+
+      - name: Start container
+        run: |
+          docker run -d --name beads-ui-test \
+            --init \
+            -p 3000:3000 \
+            -v /tmp/test-workspace:/data \
+            beads-ui:test
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/healthz; then
+              echo ""
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check timed out"
+          docker logs beads-ui-test
+          exit 1
+
+      - name: Verify bd binary
+        run: docker exec beads-ui-test bd --version
+
+      - name: Verify non-root user
+        run: |
+          USER=$(docker exec beads-ui-test whoami)
+          if [ "$USER" != "node" ]; then
+            echo "Expected user 'node', got '$USER'"
+            exit 1
+          fi
+
+      - name: Verify graceful shutdown
+        run: |
+          docker stop beads-ui-test
+          EXIT_CODE=$(docker inspect beads-ui-test --format='{{.State.ExitCode}}')
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Container exited with code $EXIT_CODE (expected 0)"
+            docker logs beads-ui-test
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f beads-ui-test 2>/dev/null || true

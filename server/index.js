@@ -74,3 +74,19 @@ server.on('error', (err) => {
   log('server error %o', err);
   process.exitCode = 1;
 });
+
+function shutdown(signal) {
+  log('%s received — shutting down', signal);
+  db_watcher.close();
+  server.close(() => {
+    log('HTTP server closed');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    log('graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, 5000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
