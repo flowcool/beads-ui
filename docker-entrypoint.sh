@@ -16,15 +16,15 @@ if [ -n "${BEADS_GIT_REMOTE:-}" ] && [ ! -d /data/.git ]; then
   echo "beads-ui: initializing git repo with remote ${BEADS_GIT_REMOTE}"
   git init /data
   git -C /data remote add origin "${BEADS_GIT_REMOTE}"
-  git -C /data fetch origin
-  git -C /data fetch origin '+refs/dolt/*:refs/dolt/*'
+  git -C /data fetch origin 2>&1 | sed "s|${GITHUB_TOKEN:-__NOTOKEN__}|***|g"
+  git -C /data fetch origin '+refs/dolt/*:refs/dolt/*' 2>&1 | sed "s|${GITHUB_TOKEN:-__NOTOKEN__}|***|g"
 fi
 
 # Bootstrap: clones DB from git origin if Dolt data exists, or validates
 # an existing DB. Safe to run on every start. CWD is /data (Dockerfile WORKDIR).
 if [ -x "$(command -v bd)" ]; then
   echo "beads-ui: running bd bootstrap..."
-  bd bootstrap --yes 2>&1 || echo "beads-ui: bd bootstrap failed (continuing with mounted volume)"
+  bd bootstrap --yes 2>&1 | sed "s|${GITHUB_TOKEN:-__NOTOKEN__}|***|g" || echo "beads-ui: bd bootstrap failed (continuing with mounted volume)"
 fi
 
 # Start a background sync loop if DOLT_REMOTE is set (replica mode).
@@ -33,7 +33,7 @@ if [ -n "${DOLT_REMOTE:-}" ]; then
   (
     while true; do
       sleep "$PULL_INTERVAL"
-      bd dolt pull 2>&1 || echo "beads-ui: dolt pull failed (will retry)"
+      bd dolt pull 2>&1 | sed "s|${GITHUB_TOKEN:-__NOTOKEN__}|***|g" || echo "beads-ui: dolt pull failed (will retry)"
     done
   ) &
 fi
