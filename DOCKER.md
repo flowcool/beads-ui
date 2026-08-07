@@ -46,6 +46,8 @@ Get checksums from the release's `checksums.txt` file, then verify independently
 | `BD_BIN` | `/usr/local/bin/bd` | Path to `bd` binary (set in image) |
 | `BDUI_BD_SANDBOX` | *(unset)* | Set to `0` to disable sandbox mode (enables Dolt sync/autopush) |
 | `BEADS_DB` | *(unset)* | Explicit database path override |
+| `DOLT_REMOTE` | *(unset)* | Set to a remote name (e.g. `origin`) to enable replica mode — a background loop runs `bd dolt pull` at regular intervals |
+| `DOLT_PULL_INTERVAL` | `30` | Seconds between `bd dolt pull` cycles (only active when `DOLT_REMOTE` is set) |
 
 ## Volumes
 
@@ -72,6 +74,26 @@ If the container exits ungracefully (crash, `docker kill`), Dolt may leave stale
 ```bash
 find .beads/ -name '*.lock' -delete
 ```
+
+## Replica mode
+
+For read-only deployments that sync from a remote Dolt database (e.g. a GitHub-hosted repo), the container can bootstrap its own database and keep it in sync automatically.
+
+On first start, the entrypoint runs `bd bootstrap --yes` which clones the database from the configured git remote. On subsequent starts with a persistent volume, bootstrap detects the existing database and skips the clone.
+
+Set `DOLT_REMOTE` to enable a background pull loop:
+
+```bash
+docker run -d -p 3000:3000 \
+  -v beads-data:/data \
+  -e DOLT_REMOTE=origin \
+  -e DOLT_PULL_INTERVAL=30 \
+  beads-ui
+```
+
+Each pull updates the local `.beads/` files, which triggers the built-in `fs.watch` → WebSocket push to connected browsers.
+
+Without `DOLT_REMOTE`, the container behaves exactly as before (serves a mounted `.beads/` directory with no sync).
 
 ## Multi-arch
 

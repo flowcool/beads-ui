@@ -21,6 +21,8 @@ services:
       HOST: "0.0.0.0"
       PORT: "3000"
       # BDUI_BD_SANDBOX: "0"  # Opt out of sandbox mode (enables Dolt sync)
+      # DOLT_REMOTE: "origin"  # Enable replica mode (bd dolt pull loop)
+      # DOLT_PULL_INTERVAL: "30"  # Seconds between pulls (default: 30)
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"]

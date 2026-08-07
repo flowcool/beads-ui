@@ -83,10 +83,13 @@ COPY --from=builder /build/app /opt/beads-ui/app
 COPY --from=builder /build/server /opt/beads-ui/server
 COPY --from=builder /build/bin /opt/beads-ui/bin
 
+COPY docker-entrypoint.sh /opt/beads-ui/docker-entrypoint.sh
+
 ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV BD_BIN=/usr/local/bin/bd
 ENV NODE_ENV=production
+ENV DOLT_PULL_INTERVAL=30
 
 WORKDIR /data
 
@@ -99,4 +102,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node -e "fetch('http://localhost:${PORT}/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"
 
-ENTRYPOINT ["tini", "--", "node", "/opt/beads-ui/server/index.js"]
+ENTRYPOINT ["tini", "--", "/opt/beads-ui/docker-entrypoint.sh"]
