@@ -71,7 +71,7 @@ RUN find . -name '*.test.js' -delete \
 FROM node:22-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git tini \
+    && apt-get install -y --no-install-recommends git tini ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # node:22-slim ships with user "node" (UID/GID 1000) — reuse it

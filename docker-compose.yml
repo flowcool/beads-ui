@@ -21,6 +21,7 @@ services:
       HOST: "0.0.0.0"
       PORT: "3000"
       # BDUI_BD_SANDBOX: "0"  # Opt out of sandbox mode (enables Dolt sync)
+      # BEADS_GIT_REMOTE: "https://github.com/user/repo.git"  # Git remote for initial bootstrap
       # DOLT_REMOTE: "origin"  # Enable replica mode (bd dolt pull loop)
       # DOLT_PULL_INTERVAL: "30"  # Seconds between pulls (default: 30)
     restart: unless-stopped
