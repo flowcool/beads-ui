@@ -12,8 +12,11 @@ fi
 if [ -d /data/.beads ]; then
   PERMS=$(stat -c '%a' /data/.beads 2>/dev/null || true)
   if [ -n "$PERMS" ] && [ "$PERMS" != "700" ]; then
-    chmod 700 /data/.beads
-    echo "beads-ui: fixed /data/.beads permissions ($PERMS -> 700)"
+    if chmod 700 /data/.beads 2>/dev/null; then
+      echo "beads-ui: fixed /data/.beads permissions ($PERMS -> 700)"
+    else
+      echo "beads-ui: warning: /data/.beads has permissions $PERMS (recommended 700), but cannot fix (not owner)"
+    fi
   fi
 fi
 
