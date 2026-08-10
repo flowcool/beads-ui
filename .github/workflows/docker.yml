@@ -80,8 +80,8 @@ jobs:
       - name: Create test workspace
         run: |
           mkdir -p /tmp/test-workspace/.beads
+          chmod 700 /tmp/test-workspace/.beads
           echo '{"database":"dolt"}' > /tmp/test-workspace/.beads/metadata.json
-          chown -R 1000:1000 /tmp/test-workspace
 
       - name: Start container
         run: |
