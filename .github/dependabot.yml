@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 3
+    groups:
+      npm-updates:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 3
+    groups:
+      github-actions-updates:
+        patterns: ['*']
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 3
+    groups:
+      docker-updates:
+        patterns: ['*']
