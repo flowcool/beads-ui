@@ -118,7 +118,7 @@ function defaultNavigateFn(hash) {
  * @param {HTMLElement} mount_element - Element to render into.
  * @param {(type: string, payload?: unknown) => Promise<unknown>} sendFn - RPC transport.
  * @param {(hash: string) => void} [navigateFn] - Navigation function; defaults to setting location.hash.
- * @param {{ snapshotFor?: (client_id: string) => any[], subscribe?: (fn: () => void) => () => void }} [issue_stores] - Optional issue stores for live updates.
+ * @param {{ snapshotFor?: (client_id: string) => any[], subscribe?: (fn: (client_id?: string) => void) => () => void }} [issue_stores] - Optional issue stores for live updates.
  * @returns {{ load: (id: string) => Promise<void>, clear: () => void, destroy: () => void }} View API.
  */
 export function createDetailView(
@@ -156,62 +156,96 @@ export function createDetailView(
   const comments_loading = new Set();
   /** @type {Map<string, number>} */
   const comments_loaded_counts = new Map();
+  /** @type {Map<string, string>} */
+  const comments_load_errors = new Map();
 
   /** @type {HTMLDialogElement | null} */
   let delete_dialog = null;
+  /** @type {string | null} */
+  let delete_target_id = null;
+
+  function closeDeleteDialog() {
+    if (!delete_dialog) {
+      return;
+    }
+    if (typeof delete_dialog.close === 'function') {
+      delete_dialog.close();
+    }
+    delete_dialog.removeAttribute('open');
+  }
+
+  /**
+   * @param {Event} ev
+   */
+  function onDeleteDialogCancel(ev) {
+    ev.preventDefault();
+    closeDeleteDialog();
+  }
+
+  async function onDeleteConfirm() {
+    const id = delete_target_id;
+    closeDeleteDialog();
+    if (id) {
+      await performDelete(id);
+    }
+  }
 
   function ensureDeleteDialog() {
-    if (delete_dialog) return delete_dialog;
+    if (delete_dialog) {
+      return delete_dialog;
+    }
     delete_dialog = document.createElement('dialog');
     delete_dialog.id = 'delete-confirm-dialog';
     delete_dialog.setAttribute('role', 'alertdialog');
     delete_dialog.setAttribute('aria-modal', 'true');
+    delete_dialog.setAttribute('aria-labelledby', 'delete-confirm-title');
+    delete_dialog.setAttribute('aria-describedby', 'delete-confirm-message');
+    delete_dialog.addEventListener('cancel', onDeleteDialogCancel);
     document.body.appendChild(delete_dialog);
     return delete_dialog;
   }
 
   function openDeleteDialog() {
-    if (!current) return;
+    if (!current) {
+      return;
+    }
     const dialog = ensureDeleteDialog();
-    const issueId = current.id;
-    const issueTitle = current.title || '(no title)';
-    dialog.innerHTML = `
-      <div class="delete-confirm">
-        <h2 class="delete-confirm__title">Delete Issue</h2>
-        <p class="delete-confirm__message">
-          Are you sure you want to delete issue <strong>${issueId}</strong> — <strong>${issueTitle}</strong>? This action cannot be undone.
-        </p>
-        <div class="delete-confirm__actions">
-          <button type="button" class="btn" id="delete-cancel-btn">Cancel</button>
-          <button type="button" class="btn danger" id="delete-confirm-btn">Delete</button>
+    const issue_id = current.id;
+    const issue_title = current.title || '(no title)';
+    delete_target_id = issue_id;
+    render(
+      html`
+        <div class="delete-confirm">
+          <h2 class="delete-confirm__title" id="delete-confirm-title">
+            Delete Issue
+          </h2>
+          <p class="delete-confirm__message" id="delete-confirm-message">
+            Are you sure you want to delete issue
+            <strong>${issue_id}</strong> — <strong>${issue_title}</strong>? This
+            action cannot be undone.
+          </p>
+          <div class="delete-confirm__actions">
+            <button
+              type="button"
+              class="btn"
+              id="delete-cancel-btn"
+              @click=${closeDeleteDialog}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn danger"
+              id="delete-confirm-btn"
+              @click=${onDeleteConfirm}
+            >
+              Delete
+            </button>
+          </div>
         </div>
-      </div>
-    `;
-    const cancelBtn = dialog.querySelector('#delete-cancel-btn');
-    const confirmBtn = dialog.querySelector('#delete-confirm-btn');
-
-    cancelBtn?.addEventListener('click', () => {
-      if (typeof dialog.close === 'function') {
-        dialog.close();
-      }
-      dialog.removeAttribute('open');
-    });
-
-    confirmBtn?.addEventListener('click', async () => {
-      if (typeof dialog.close === 'function') {
-        dialog.close();
-      }
-      dialog.removeAttribute('open');
-      await performDelete();
-    });
-
-    dialog.addEventListener('cancel', (ev) => {
-      ev.preventDefault();
-      if (typeof dialog.close === 'function') {
-        dialog.close();
-      }
-      dialog.removeAttribute('open');
-    });
+      `,
+      dialog
+    );
 
     if (typeof dialog.showModal === 'function') {
       try {
@@ -223,19 +257,26 @@ export function createDetailView(
     } else {
       dialog.setAttribute('open', '');
     }
+    const cancel_button = /** @type {HTMLButtonElement | null} */ (
+      dialog.querySelector('#delete-cancel-btn')
+    );
+    cancel_button?.focus();
   }
 
-  async function performDelete() {
-    if (!current) return;
-    const id = current.id;
+  /**
+   * @param {string} id
+   */
+  async function performDelete(id) {
     try {
       await sendFn('delete-issue', { id });
-      current = null;
-      current_id = null;
-      doRender();
-      // Navigate back to close the dialog
-      const view = parseView(window.location.hash || '');
-      navigateFn(`#/${view}`);
+      if (current?.id === id) {
+        current = null;
+        current_id = null;
+        doRender();
+        // Navigate back to close the dialog
+        const view = parseView(window.location.hash || '');
+        navigateFn(`#/${view}`);
+      }
     } catch (err) {
       log('delete failed: %o', err);
       showToast('Failed to delete issue', 'error');
@@ -308,6 +349,9 @@ export function createDetailView(
   function hasCurrentComments(issue) {
     const comments = /** @type {any} */ (issue).comments;
     if (!Array.isArray(comments)) {
+      if (issueCommentCount(issue) === 0) {
+        return true;
+      }
       return false;
     }
     const count = issueCommentCount(issue);
@@ -349,7 +393,8 @@ export function createDetailView(
       !current ||
       String(current.id) !== issue_id ||
       hasCurrentComments(current) ||
-      comments_loading.has(issue_id)
+      comments_loading.has(issue_id) ||
+      comments_load_errors.has(issue_id)
     ) {
       return;
     }
@@ -375,19 +420,60 @@ export function createDetailView(
         }
         /** @type {any} */ (current).comments = comments;
         markCommentsLoaded(current, comments, true);
+        comments_load_errors.delete(issue_id);
         doRender();
       }
     } catch (err) {
       log('fetch comments failed %s %o', issue_id, err);
+      comments_load_errors.set(issue_id, errorMessage(err));
     } finally {
       comments_loading.delete(issue_id);
+      if (
+        current &&
+        current_id === issue_id &&
+        String(current.id) === issue_id
+      ) {
+        doRender();
+      }
     }
   }
 
+  /**
+   * @param {unknown} err
+   */
+  function errorMessage(err) {
+    if (err && typeof err === 'object') {
+      const maybe_message = /** @type {{ message?: unknown }} */ (err).message;
+      if (typeof maybe_message === 'string' && maybe_message.length > 0) {
+        return maybe_message;
+      }
+    }
+    return 'Unable to load comments';
+  }
+
+  /** Retry loading comments for the active issue. */
+  function onCommentsRetry() {
+    if (!current_id) {
+      return;
+    }
+    comments_load_errors.delete(current_id);
+    doRender();
+    void ensureCommentsLoaded(current_id);
+  }
+
   // Live updates: re-render when issue stores change
+  /** @type {(() => void) | null} */
+  let unsubscribe_issue_stores = null;
   if (issue_stores && typeof issue_stores.subscribe === 'function') {
-    issue_stores.subscribe(() => {
+    unsubscribe_issue_stores = issue_stores.subscribe((client_id) => {
       try {
+        if (!current_id) {
+          return;
+        }
+        const active_client_id = `detail:${current_id}`;
+        if (client_id && client_id !== active_client_id) {
+          return;
+        }
         refreshFromStore();
         doRender();
         void ensureCommentsLoaded(current_id);
@@ -973,6 +1059,7 @@ export function createDetailView(
         // Update comments in current issue
         /** @type {any} */ (current).comments = result;
         markCommentsLoaded(current, result, false);
+        comments_load_errors.delete(String(current.id));
         comment_text = '';
         doRender();
       }
@@ -1349,23 +1436,33 @@ export function createDetailView(
     const comments = Array.isArray(/** @type {any} */ (issue).comments)
       ? /** @type {Comment[]} */ (/** @type {any} */ (issue).comments)
       : [];
+    const comments_error = comments_load_errors.get(String(issue.id)) || '';
+    const comments_pending =
+      comments.length === 0 && !comments_error && !hasCurrentComments(issue);
     const comments_block = html`<div class="comments">
       <div class="props-card__title">Comments</div>
-      ${comments.length === 0
-        ? html`<div class="muted">No comments yet</div>`
-        : comments.map(
-            (c) => html`
-              <div class="comment-item">
-                <div class="comment-header">
-                  <span class="comment-author">${c.author || 'Unknown'}</span>
-                  <span class="comment-date"
-                    >${formatCommentDate(c.created_at)}</span
-                  >
+      ${comments_error
+        ? html`<div class="muted" role="alert">
+            ${comments_error}
+            <button type="button" @click=${onCommentsRetry}>Retry</button>
+          </div>`
+        : comments.length === 0
+          ? html`<div class="muted">
+              ${comments_pending ? 'Loading comments…' : 'No comments yet'}
+            </div>`
+          : comments.map(
+              (c) => html`
+                <div class="comment-item">
+                  <div class="comment-header">
+                    <span class="comment-author">${c.author || 'Unknown'}</span>
+                    <span class="comment-date"
+                      >${formatCommentDate(c.created_at)}</span
+                    >
+                  </div>
+                  <div class="comment-text">${c.text}</div>
                 </div>
-                <div class="comment-text">${c.text}</div>
-              </div>
-            `
-          )}
+              `
+            )}
       <div class="comment-input">
         <textarea
           placeholder="Add a comment... (Ctrl+Enter to submit)"
@@ -1679,18 +1776,28 @@ export function createDetailView(
       pending = false;
       comment_text = '';
       comment_pending = false;
+      comments_load_errors.delete(current_id);
       doRender();
 
-      await ensureCommentsLoaded(current_id);
+      void ensureCommentsLoaded(current_id);
     },
     clear() {
+      current_id = null;
+      current = null;
+      comments_load_errors.clear();
       renderPlaceholder('Select an issue to view details');
     },
     destroy() {
       mount_element.replaceChildren();
+      if (unsubscribe_issue_stores) {
+        unsubscribe_issue_stores();
+        unsubscribe_issue_stores = null;
+      }
       if (delete_dialog && delete_dialog.parentNode) {
+        delete_dialog.removeEventListener('cancel', onDeleteDialogCancel);
         delete_dialog.parentNode.removeChild(delete_dialog);
         delete_dialog = null;
+        delete_target_id = null;
       }
     }
   };
