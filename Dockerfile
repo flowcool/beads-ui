@@ -71,7 +71,7 @@ RUN find . -name '*.test.js' -delete \
 FROM node:22-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git tini \
+    && apt-get install -y --no-install-recommends ca-certificates git tini \
     && rm -rf /var/lib/apt/lists/*
 
 # The runtime starts Node directly. Package managers are build-only tools.
