@@ -4,6 +4,7 @@ node_modules
 .beads
 .claude
 .dolt
+tmp/
 *.db
 
 docs/

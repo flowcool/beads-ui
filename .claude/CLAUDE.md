@@ -1,20 +1,21 @@
 # CLAUDE.md — beads-ui
 
-Local web UI for the [beads](https://github.com/steveyegge/beads) CLI issue tracker.
-Express + WebSocket server, lit-html SPA frontend. By [Maximilian Antoni](https://github.com/mantoni).
+Local web UI for the [beads](https://github.com/steveyegge/beads) CLI issue
+tracker. Express + WebSocket server, lit-html SPA frontend. By
+[Maximilian Antoni](https://github.com/mantoni).
 
 ## Context
 
-| Fact | Value |
-|---|---|
-| Stack | Node.js >=22, Express 5, WebSocket (ws), lit-html, esbuild |
-| Entry point | `bin/bdui.js` → `server/cli/index.js` |
-| Server | `server/index.js` — HTTP + WS on `HOST:PORT` (default `127.0.0.1:3000`) |
-| Frontend | `app/` — SPA bundled by `scripts/build-frontend.js` via esbuild |
+| Fact          | Value                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------- |
+| Stack         | Node.js >=22, Express 5, WebSocket (ws), lit-html, esbuild                             |
+| Entry point   | `bin/bdui.js` → `server/cli/index.js`                                                  |
+| Server        | `server/index.js` — HTTP + WS on `HOST:PORT` (default `127.0.0.1:3000`)                |
+| Frontend      | `app/` — SPA bundled by `scripts/build-frontend.js` via esbuild                        |
 | DB resolution | `server/db.js` — walks up from cwd looking for `.beads/*.db` or `.beads/metadata.json` |
-| Tests | vitest (`npm test`), extensive unit + integration coverage |
-| Lint/format | eslint + prettier (`npm run all` for full check) |
-| Remote | https://github.com/mantoni/beads-ui |
+| Tests         | vitest (`npm test`), extensive unit + integration coverage                             |
+| Lint/format   | eslint + prettier (`npm run all` for full check)                                       |
+| Remote        | https://github.com/mantoni/beads-ui                                                    |
 
 ## Architecture
 
@@ -38,8 +39,9 @@ app/
   index.html         shell page
 ```
 
-Key design: server watches `.beads/` for file changes → debounced WS push to connected clients.
-Multi-workspace support via registry file at `~/.beads-ui/registry.json`.
+Key design: server watches `.beads/` for file changes → debounced WS push to
+connected clients. Multi-workspace support via registry file at
+`~/.beads-ui/registry.json`.
 
 ## Development
 
@@ -61,8 +63,10 @@ npm run all            # lint + tsc + test + prettier
 ## Project scope
 
 Contribute Docker support to beads-ui for portable, containerized deployment.
-Upstream proposal: https://github.com/mantoni/beads-ui/issues/107 (awaiting maintainer response).
-Implementation proceeds on this repo. If accepted → PR to mantoni/beads-ui. If not → maintain our own image.
+Upstream proposal: https://github.com/mantoni/beads-ui/issues/107 (awaiting
+maintainer response). Implementation proceeds on this repo. If accepted → PR to
+mantoni/beads-ui. If not → maintain our own image.
 
-Deliverables: Dockerfile, docker-compose.yml, CI workflow, DOCKER.md, graceful shutdown handler.
-Deployment (Traefik, volumes, auth) is out of scope — that's the infra project.
+Deliverables: Dockerfile, docker-compose.yml, CI workflow, DOCKER.md, graceful
+shutdown handler. Deployment (Traefik, volumes, auth) is out of scope — that's
+the infra project.

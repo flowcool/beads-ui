@@ -19,35 +19,47 @@ Then open http://localhost:3000.
 
 ## Build args
 
-| Arg | Default | Description |
-|---|---|---|
-| `BD_VERSION` | `1.1.2` | Version of the `bd` CLI to bundle (from [steveyegge/beads](https://github.com/steveyegge/beads/releases)) |
-| `BD_SHA256_AMD64` | *(hardcoded)* | SHA256 checksum for the linux/amd64 tarball |
-| `BD_SHA256_ARM64` | *(hardcoded)* | SHA256 checksum for the linux/arm64 tarball |
+| Arg               | Default       | Description                                                                                                |
+| ----------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `BD_VERSION`      | `1.3.2`       | Version of the `bd` CLI to bundle (from [steveyegge/beads](https://github.com/gastownhall/beads/releases)) |
+| `BD_SHA256_AMD64` | _(hardcoded)_ | SHA256 checksum for the linux/amd64 tarball                                                                |
+| `BD_SHA256_ARM64` | _(hardcoded)_ | SHA256 checksum for the linux/arm64 tarball                                                                |
 
 To use a different `bd` version:
 
 ```bash
 docker build \
-  --build-arg BD_VERSION=1.1.2 \
+  --build-arg BD_VERSION=1.3.2 \
   --build-arg BD_SHA256_AMD64=<sha256> \
   --build-arg BD_SHA256_ARM64=<sha256> \
   -t beads-ui .
 ```
 
-Get checksums from the release's `checksums.txt` file, then verify independently.
+Get checksums from the release's `checksums.txt` file, then verify
+independently.
 
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `HOST` | `0.0.0.0` | Bind address (set in image, override if needed) |
-| `PORT` | `3000` | Listen port |
-| `BD_BIN` | `/usr/local/bin/bd` | Path to `bd` binary (set in image) |
-| `BDUI_BD_SANDBOX` | *(unset)* | Set to `0` to disable sandbox mode (enables Dolt sync/autopush) |
-| `BEADS_DB` | *(unset)* | Explicit database path override |
-| `DOLT_REMOTE` | *(unset)* | Set to a remote name (e.g. `origin`) to enable replica mode — a background loop runs `bd dolt pull` at regular intervals |
-| `DOLT_PULL_INTERVAL` | `30` | Seconds between `bd dolt pull` cycles (only active when `DOLT_REMOTE` is set) |
+The image bundles `bd` 1.3.2. The Docker integration check covers the five issue
+types supported by the create handler and six supported by the update handler.
+Decision creation and story, spike and milestone controls are tracked upstream
+in [PR #118](https://github.com/mantoni/beads-ui/pull/118). Upgrading an
+existing database from `bd` 1.1.x requires the Beads upgrade procedure. Test a
+copy first. This image change does not authorize a deployment or a database
+migration.
+
+The runtime excludes npm and Corepack. Dependency installation happens in the
+build stage.
+
+| Variable             | Default             | Description                                                                                                              |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `HOST`               | `0.0.0.0`           | Bind address (set in image, override if needed)                                                                          |
+| `PORT`               | `3000`              | Listen port                                                                                                              |
+| `BD_BIN`             | `/usr/local/bin/bd` | Path to `bd` binary (set in image)                                                                                       |
+| `BDUI_BD_SANDBOX`    | _(unset)_           | Set to `0` to disable sandbox mode (enables Dolt sync/autopush)                                                          |
+| `BEADS_DB`           | _(unset)_           | Explicit database path override                                                                                          |
+| `DOLT_REMOTE`        | _(unset)_           | Set to a remote name (e.g. `origin`) to enable replica mode — a background loop runs `bd dolt pull` at regular intervals |
+| `DOLT_PULL_INTERVAL` | `30`                | Seconds between `bd dolt pull` cycles (only active when `DOLT_REMOTE` is set)                                            |
 
 ## Volumes
 
@@ -57,11 +69,15 @@ Mount your project directory to `/data`:
 docker run -v /path/to/my-project:/data beads-ui
 ```
 
-The `bd` CLI resolves the `.beads/` directory by walking up from `/data`. Your project must contain a `.beads/` directory with either a SQLite database (`*.db`) or Dolt metadata (`metadata.json`).
+The `bd` CLI resolves the `.beads/` directory by walking up from `/data`. Your
+project must contain a `.beads/` directory with either a SQLite database
+(`*.db`) or Dolt metadata (`metadata.json`).
 
 ### Permissions
 
-The container runs as user `node` (UID/GID 1000, built into the Node.js base image). The `bd` binary needs write access to `.beads/` for CRUD operations. If your host files use a different UID, override the container user:
+The container runs as user `node` (UID/GID 1000, built into the Node.js base
+image). The `bd` binary needs write access to `.beads/` for CRUD operations. If
+your host files use a different UID, override the container user:
 
 ```bash
 docker run --user "$(id -u):$(id -g)" -v ./:/data beads-ui
@@ -69,7 +85,8 @@ docker run --user "$(id -u):$(id -g)" -v ./:/data beads-ui
 
 ### Dolt lock file recovery
 
-If the container exits ungracefully (crash, `docker kill`), Dolt may leave stale lock files that prevent the next start. To recover:
+If the container exits ungracefully (crash, `docker kill`), Dolt may leave stale
+lock files that prevent the next start. To recover:
 
 ```bash
 find .beads/ -name '*.lock' -delete
@@ -77,9 +94,13 @@ find .beads/ -name '*.lock' -delete
 
 ## Replica mode
 
-For read-only deployments that sync from a remote Dolt database (e.g. a GitHub-hosted repo), the container can bootstrap its own database and keep it in sync automatically.
+For read-only deployments that sync from a remote Dolt database (e.g. a
+GitHub-hosted repo), the container can bootstrap its own database and keep it in
+sync automatically.
 
-On first start, the entrypoint runs `bd bootstrap --yes` which clones the database from the configured git remote. On subsequent starts with a persistent volume, bootstrap detects the existing database and skips the clone.
+On first start, the entrypoint runs `bd bootstrap --yes` which clones the
+database from the configured git remote. On subsequent starts with a persistent
+volume, bootstrap detects the existing database and skips the clone.
 
 Set `DOLT_REMOTE` to enable a background pull loop:
 
@@ -91,9 +112,11 @@ docker run -d -p 3000:3000 \
   beads-ui
 ```
 
-Each pull updates the local `.beads/` files, which triggers the built-in `fs.watch` → WebSocket push to connected browsers.
+Each pull updates the local `.beads/` files, which triggers the built-in
+`fs.watch` → WebSocket push to connected browsers.
 
-Without `DOLT_REMOTE`, the container behaves exactly as before (serves a mounted `.beads/` directory with no sync).
+Without `DOLT_REMOTE`, the container behaves exactly as before (serves a mounted
+`.beads/` directory with no sync).
 
 ## Multi-arch
 
