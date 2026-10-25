@@ -75,6 +75,9 @@ server.on('error', (err) => {
   process.exitCode = 1;
 });
 
+/**
+ * @param {NodeJS.Signals} signal
+ */
 function shutdown(signal) {
   log('%s received — shutting down', signal);
   db_watcher.close();
