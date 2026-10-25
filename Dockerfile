@@ -1,9 +1,9 @@
 # beads-ui — Docker image
-# Bundles the Node.js UI server with the bd CLI binary (Go, from steveyegge/beads).
+# Bundles the Node.js UI server with the bd CLI binary (Go, from gastownhall/beads).
 #
 # Build:
 #   docker build -t beads-ui .
-#   docker build --build-arg BD_VERSION=1.1.2 -t beads-ui .
+#   docker build --build-arg BD_VERSION=1.3.2 -t beads-ui .
 #
 # Run:
 #   docker run -d -p 3000:3000 -v ./my-project:/data beads-ui
@@ -13,12 +13,12 @@
 # ---------------------------------------------------------------------------
 FROM node:22-slim AS downloader
 
-ARG BD_VERSION=1.1.2
+ARG BD_VERSION=1.3.2
 ARG TARGETARCH
 
 # Hardcoded checksums — update these when bumping BD_VERSION
-ARG BD_SHA256_AMD64=a72d71ed374955dc9f83a0f90b54bd7b6a0016709dd1676ae2e368651ed401c2
-ARG BD_SHA256_ARM64=a134015faf4be0a43f8681a8d602eaf0b7c255c957f09d3c933257c8c92fdd10
+ARG BD_SHA256_AMD64=c6ea3281f6ff82628351b2d0967c9eb85862c8a0ec0ebc24e63e645c8b02462e
+ARG BD_SHA256_ARM64=39b34a1246b7216031a98ae838c785a7dbba29cf9f50f109114ac462a4b85e7c
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -27,7 +27,7 @@ WORKDIR /tmp/bd
 
 RUN set -eux; \
     TARBALL="beads_${BD_VERSION}_linux_${TARGETARCH}.tar.gz"; \
-    URL="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}/${TARBALL}"; \
+    URL="https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}/${TARBALL}"; \
     curl -fsSL -o "${TARBALL}" "${URL}"; \
     # Select the correct checksum for this architecture
     if [ "${TARGETARCH}" = "amd64" ]; then \
@@ -73,6 +73,11 @@ FROM node:22-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git tini \
     && rm -rf /var/lib/apt/lists/*
+
+# The runtime starts Node directly. Package managers are build-only tools.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/pnpm /usr/local/bin/pnpx
 
 # node:22-slim ships with user "node" (UID/GID 1000) — reuse it
 

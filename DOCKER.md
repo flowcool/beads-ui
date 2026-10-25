@@ -19,17 +19,17 @@ Then open http://localhost:3000.
 
 ## Build args
 
-| Arg               | Default       | Description                                                                                               |
-| ----------------- | ------------- | --------------------------------------------------------------------------------------------------------- |
-| `BD_VERSION`      | `1.1.2`       | Version of the `bd` CLI to bundle (from [steveyegge/beads](https://github.com/steveyegge/beads/releases)) |
-| `BD_SHA256_AMD64` | _(hardcoded)_ | SHA256 checksum for the linux/amd64 tarball                                                               |
-| `BD_SHA256_ARM64` | _(hardcoded)_ | SHA256 checksum for the linux/arm64 tarball                                                               |
+| Arg               | Default       | Description                                                                                                |
+| ----------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `BD_VERSION`      | `1.3.2`       | Version of the `bd` CLI to bundle (from [steveyegge/beads](https://github.com/gastownhall/beads/releases)) |
+| `BD_SHA256_AMD64` | _(hardcoded)_ | SHA256 checksum for the linux/amd64 tarball                                                                |
+| `BD_SHA256_ARM64` | _(hardcoded)_ | SHA256 checksum for the linux/arm64 tarball                                                                |
 
 To use a different `bd` version:
 
 ```bash
 docker build \
-  --build-arg BD_VERSION=1.1.2 \
+  --build-arg BD_VERSION=1.3.2 \
   --build-arg BD_SHA256_AMD64=<sha256> \
   --build-arg BD_SHA256_ARM64=<sha256> \
   -t beads-ui .
@@ -39,6 +39,17 @@ Get checksums from the release's `checksums.txt` file, then verify
 independently.
 
 ## Environment variables
+
+The image bundles `bd` 1.3.2. The Docker integration check covers the five issue
+types supported by the create handler and six supported by the update handler.
+Decision creation and story, spike and milestone controls are tracked upstream
+in [PR #118](https://github.com/mantoni/beads-ui/pull/118). Upgrading an
+existing database from `bd` 1.1.x requires the Beads upgrade procedure. Test a
+copy first. This image change does not authorize a deployment or a database
+migration.
+
+The runtime excludes npm and Corepack. Dependency installation happens in the
+build stage.
 
 | Variable             | Default             | Description                                                                                                              |
 | -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |

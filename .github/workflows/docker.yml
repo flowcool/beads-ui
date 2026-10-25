@@ -11,6 +11,7 @@ on:
       - .dockerignore
       - docker-compose.yml
       - .github/workflows/docker.yml
+      - scripts/test-docker-compat.js
 
 permissions:
   contents: read
@@ -106,6 +107,13 @@ jobs:
 
       - name: Verify bd binary
         run: docker exec beads-ui-test bd --version
+
+      - name: Verify real Beads workflows without host data or network access
+        run: |
+          docker run --rm --network none --entrypoint node \
+            -e BDUI_DOCKER_TEST=1 \
+            -v "$PWD/scripts/test-docker-compat.js:/opt/beads-ui/scripts/test-docker-compat.js:ro" \
+            beads-ui:test /opt/beads-ui/scripts/test-docker-compat.js
 
       - name: Verify non-root user
         run: |
